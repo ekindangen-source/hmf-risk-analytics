@@ -27,3 +27,5 @@ credentials*
 .idea/
 .DS_Store
 Thumbs.db
+
+!certs/rds-global-bundle.pem
