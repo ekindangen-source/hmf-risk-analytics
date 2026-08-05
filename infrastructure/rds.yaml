@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Private PostgreSQL database for HMF Risk Analytics
+
+Resources:
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: hmf/risk-analytics/postgres
+      Description: PostgreSQL credentials for HMF Risk Analytics
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"hmfapp"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: Project
+          Value: HMF-Risk-Analytics
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL access from HMF Risk Analytics EC2 only
+      VpcId: vpc-03b4546d5fcb9afe0
+      SecurityGroupIngress:
+        - Description: PostgreSQL from HMF application server
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: sg-0e7b7ac10f4e069ff
+      Tags:
+        - Key: Name
+          Value: hmf-risk-postgres-sg
+        - Key: Project
+          Value: HMF-Risk-Analytics
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: hmf-risk-db-subnets
+      DBSubnetGroupDescription: Subnets for HMF Risk Analytics PostgreSQL
+      SubnetIds:
+        - subnet-036a88fd9cfa7e985
+        - subnet-0ae4636830e09438c
+      Tags:
+        - Key: Project
+          Value: HMF-Risk-Analytics
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: hmf-risk-postgres
+      DBName: hmfanalytics
+      Engine: postgres
+      EngineVersion: "18.3"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DatabaseSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}"
+      Port: 5432
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 7
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DeletionProtection: true
+      EnableIAMDatabaseAuthentication: false
+      Tags:
+        - Key: Name
+          Value: hmf-risk-postgres
+        - Key: Project
+          Value: HMF-Risk-Analytics
+
+  SecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DatabaseSecret
+      TargetId: !Ref Database
+      TargetType: AWS::RDS::DBInstance
+
+Outputs:
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+
+  DatabasePort:
+    Value: !GetAtt Database.Endpoint.Port
+
+  DatabaseName:
+    Value: hmfanalytics
+
+  DatabaseSecretArn:
+    Value: !Ref DatabaseSecret
+
+  DatabaseSecurityGroupId:
+    Value: !GetAtt DatabaseSecurityGroup.GroupId

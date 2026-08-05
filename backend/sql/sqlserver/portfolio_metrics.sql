@@ -1,0 +1,64 @@
+DECLARE @LatestDate date =
+  (SELECT MAX(REPORTDATE) FROM dbo.RPT_AGING_ARM);
+
+SELECT
+  @LatestDate AS snapshot_date,
+
+  COALESCE(
+    NULLIF(LTRIM(RTRIM(BRANCHCODE)), ''),
+    'UNKNOWN'
+  ) AS branch_code,
+
+  COALESCE(
+    NULLIF(LTRIM(RTRIM(BRANCHNAME)), ''),
+    'Unknown Branch'
+  ) AS branch_name,
+
+  COALESCE(
+    NULLIF(LTRIM(RTRIM(ASSETTYPE)), ''),
+    'Unknown Asset'
+  ) AS asset_category,
+
+  CASE
+    WHEN COALESCE(PASTDUEDAYS, 0) <= 0 THEN 'CURRENT'
+    WHEN PASTDUEDAYS <= 7 THEN 'DPD_1_7'
+    WHEN PASTDUEDAYS <= 30 THEN 'DPD_8_30'
+    WHEN PASTDUEDAYS <= 60 THEN 'DPD_31_60'
+    WHEN PASTDUEDAYS <= 90 THEN 'DPD_61_90'
+    WHEN PASTDUEDAYS <= 120 THEN 'DPD_91_120'
+    ELSE 'DPD_121_PLUS'
+  END AS aging_bucket,
+
+  COUNT_BIG(*) AS contract_count,
+
+  CAST(
+    SUM(COALESCE(SALDOEOM, 0))
+    AS decimal(28,2)
+  ) AS outstanding_amount,
+
+  CAST(
+    SUM(COALESCE(TOTALLATE, 0))
+    AS decimal(28,2)
+  ) AS overdue_amount,
+
+  CAST(
+    SUM(COALESCE(INSTALLMENTAMOUNT, 0))
+    AS decimal(28,2)
+  ) AS installment_amount
+
+FROM dbo.RPT_AGING_ARM
+WHERE REPORTDATE = @LatestDate
+  AND SALDOEOM > 0
+GROUP BY
+  COALESCE(NULLIF(LTRIM(RTRIM(BRANCHCODE)), ''), 'UNKNOWN'),
+  COALESCE(NULLIF(LTRIM(RTRIM(BRANCHNAME)), ''), 'Unknown Branch'),
+  COALESCE(NULLIF(LTRIM(RTRIM(ASSETTYPE)), ''), 'Unknown Asset'),
+  CASE
+    WHEN COALESCE(PASTDUEDAYS, 0) <= 0 THEN 'CURRENT'
+    WHEN PASTDUEDAYS <= 7 THEN 'DPD_1_7'
+    WHEN PASTDUEDAYS <= 30 THEN 'DPD_8_30'
+    WHEN PASTDUEDAYS <= 60 THEN 'DPD_31_60'
+    WHEN PASTDUEDAYS <= 90 THEN 'DPD_61_90'
+    WHEN PASTDUEDAYS <= 120 THEN 'DPD_91_120'
+    ELSE 'DPD_121_PLUS'
+  END;

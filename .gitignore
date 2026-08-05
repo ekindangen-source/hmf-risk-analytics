@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Generated builds
+frontend/dist/
+
+# Logs and runtime files
+logs/
+*.log
+*.pid
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+!frontend/.env.production
+*.pem
+*.key
+*.pfx
+*.ovpn
+auth.txt
+credentials*
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

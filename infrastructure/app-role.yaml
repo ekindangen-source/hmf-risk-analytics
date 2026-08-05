@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Restricted EC2 role for HMF Risk Analytics
+
+Parameters:
+  PostgresSecretArn:
+    Type: String
+
+  SqlServerSecretArn:
+    Type: String
+
+Resources:
+  ApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: HMF-Risk-Analytics-App-Role
+      Description: Restricted runtime role for HMF Risk Analytics
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadHmfRiskAnalyticsSecrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadApplicationSecrets
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource:
+                  - !Ref PostgresSecretArn
+                  - !Ref SqlServerSecretArn
+      Tags:
+        - Key: Project
+          Value: HMF-Risk-Analytics
+        - Key: Environment
+          Value: Production
+
+  ApplicationInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: HMF-Risk-Analytics-App-Profile
+      Roles:
+        - !Ref ApplicationRole
+
+Outputs:
+  RoleName:
+    Value: !Ref ApplicationRole
+
+  InstanceProfileName:
+    Value: !Ref ApplicationInstanceProfile
+
+  InstanceProfileArn:
+    Value: !GetAtt ApplicationInstanceProfile.Arn
